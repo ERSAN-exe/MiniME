@@ -1,0 +1,21 @@
+/* MiniME — English (Base) */
+
+/* Menu bar menu */
+"menu.launchAtLogin" = "Launch at Login";
+"menu.about" = "About MiniME";
+"menu.quit" = "Quit MiniME";
+
+/* About window */
+"about.windowTitle" = "About MiniME";
+"about.tagline" = "Click a Dock icon to minimize that app's windows";
+"about.projectLink" = "Project Page";
+"about.changelogButton" = "View Changelog";
+"about.versionFormat" = "Version %@ (build %@)";
+
+/* Changelog window */
+"changelog.windowTitle" = "Changelog";
+"changelog.unavailable" = "Changelog file not found.";
+
+/* Alerts */
+"alert.loginItem.title" = "Failed to Enable Launch at Login";
+"alert.loginItem.message" = "Please make sure MiniME.app is located in the Applications folder and is not blocked by the system.\n\n%@";

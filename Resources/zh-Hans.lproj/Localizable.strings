@@ -1,0 +1,21 @@
+/* MiniME — 简体中文 */
+
+/* 菜单栏菜单 */
+"menu.launchAtLogin" = "登录时自动启动";
+"menu.about" = "关于 MiniME";
+"menu.quit" = "退出 MiniME";
+
+/* 关于窗口 */
+"about.windowTitle" = "关于 MiniME";
+"about.tagline" = "点击 Dock 图标,最小化应用窗口";
+"about.projectLink" = "项目地址";
+"about.changelogButton" = "查看日志";
+"about.versionFormat" = "版本 %@ (build %@)";
+
+/* 更新日志窗口 */
+"changelog.windowTitle" = "更新日志";
+"changelog.unavailable" = "未找到更新日志文件。";
+
+/* 提示框 */
+"alert.loginItem.title" = "设置开机自启失败";
+"alert.loginItem.message" = "请确认 MiniME.app 位于“应用程序”文件夹中,且未被系统阻止。\n\n%@";
