@@ -18,27 +18,17 @@
 
 </div>
 
----
-
 # 介绍
 
 只需下载应用 然后给予无障碍权限 就能获得类似Windows的Dock栏图标体验
-
----
 
 # 开始使用
 
 [![Releases](https://img.shields.io/badge/Releases-最新版-blue?style=for-the-badge&logo=github)](https://github.com/ERSAN-exe/MiniME/releases/latest)
 
----
-
 # 开源协议
 
 [![License](https://img.shields.io/badge/License-MIT-orange?style=for-the-badge&logo=opensourceinitiative)](LICENSE)
-
----
-
-# 鸣谢
 
 <div align="center">
 
