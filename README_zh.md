@@ -2,11 +2,11 @@
 
 <img src="icon.png" width="100" alt="Logo">
 
-# MiniME
+# MiniME ！
 
 <h3>
 
-点击任务栏图标最小化
+点击Dock栏应用图标将应用最小化
 
 </h3>
 
