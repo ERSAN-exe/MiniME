@@ -110,14 +110,21 @@ final class DockTapController: NSObject {
         guard let itemTitle = dockItemTitle(at: point) else { return false }
         // 3. 应用是否在运行(未运行 → 放行,让系统正常启动)
         guard let runningApp = matchRunningApplication(named: itemTitle) else { return false }
-        // 4. 是否有可见窗口(已全部最小化/无窗口 → 放行,让系统正常唤起)
         let pid = runningApp.processIdentifier
+        // 4. 应用不在前台 → 放行点击,优先由系统把该应用的窗口切换到前台
+        guard isFrontmost(pid: pid) else { return false }
+        // 5. 是否有可见窗口(已全部最小化/无窗口 → 放行,让系统正常唤起)
         guard WindowMinimizer.hasVisibleWindows(pid: pid) else { return false }
-        // 5. 吞掉点击,并异步执行最小化(避免阻塞事件回调)
+        // 6. 应用已在前台且有可见窗口 → 吞掉点击,并异步执行最小化(避免阻塞事件回调)
         DispatchQueue.main.async {
             WindowMinimizer.minimizeWindows(pid: pid)
         }
         return true
+    }
+
+    /// 该应用当前是否为前台(最前)应用
+    private func isFrontmost(pid: pid_t) -> Bool {
+        NSWorkspace.shared.frontmostApplication?.processIdentifier == pid
     }
 
     // MARK: - Dock 区域缓存
