@@ -3,6 +3,8 @@
 /* 菜单栏菜单 */
 "menu.launchAtLogin" = "登录时自动启动";
 "menu.about" = "关于 MiniME";
+"menu.hideIcon" = "隐藏菜单栏图标";
+"menu.hideIcon.tooltip" = "隐藏后再次打开 MiniME 即可重新显示";
 "menu.quit" = "退出 MiniME";
 
 /* 关于窗口 */
@@ -10,7 +12,19 @@
 "about.tagline" = "点击 Dock 图标,最小化应用窗口";
 "about.projectLink" = "项目地址";
 "about.changelogButton" = "查看日志";
+"about.checkUpdate" = "检查更新";
+"about.checkUpdate.checking" = "正在检查…";
 "about.versionFormat" = "版本 %@ (build %@)";
+
+/* 检查更新 */
+"update.upToDate.title" = "已是最新版本";
+"update.upToDate.message" = "MiniME %@ 已是最新版本。";
+"update.available.title" = "发现新版本 %@";
+"update.available.message" = "最新版本为 %@,当前版本为 %@。";
+"update.available.jump" = "前往项目主页";
+"update.available.later" = "以后再说";
+"update.failed.title" = "检查更新失败";
+"update.failed.message" = "无法获取最新版本信息,请检查网络连接后重试。\n\n%@";
 
 /* 更新日志窗口 */
 "changelog.windowTitle" = "更新日志";

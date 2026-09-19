@@ -1,4 +1,5 @@
 import AppKit
+import Carbon
 import ServiceManagement
 
 /// 菜单栏常驻 UI:状态图标 + 精简菜单(开机自启 / 关于 / 退出)+ 原生风格关于窗口
@@ -12,10 +13,57 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var lastMenuSignature = ""
 
     /// 项目主页
-    private static let projectURL = URL(string: "https://github.com/ERSAN-exe/MiniME")!
+    private static let projectURL = URL(string: "https://github.com/ERSAN-exe/MiniME/")!
+
+    /// 版本信息源:仓库中用于打包的脚本(与 GitHub main 分支保持一致)
+    private static let versionFeedURL = URL(
+        string: "https://raw.githubusercontent.com/ERSAN-exe/MiniME/main/scripts/build-app.sh"
+    )!
+
+    /// 关于窗口中的「检查更新」按钮(检查期间用于显示进度状态)
+    private weak var checkUpdateButton: NSButton?
+
+    /// 是否正在检查更新
+    private var isCheckingUpdate = false
+
+    /// 菜单栏图标隐藏状态的持久化键
+    private static let iconHiddenKey = "MiniMEIconHidden"
+
+    /// 菜单栏图标当前是否被用户隐藏
+    private var isIconHidden = false
+
+    /// 本次启动是否由用户主动触发(而非登录项自动启动)
+    private var launchWasUserInitiated = false
+
+    /// 判断启动来源:登录项(开机/登录自动启动)不会发送「打开应用」事件
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        launchWasUserInitiated = Self.detectUserInitiatedLaunch()
+    }
+
+    private static func detectUserInitiatedLaunch() -> Bool {
+        guard let event = NSAppleEventManager.shared().currentAppleEvent,
+              event.eventClass == kCoreEventClass,
+              event.eventID == kAEOpenApplication else {
+            return false // 无「打开应用」事件 → 登录项自动启动
+        }
+        // 显式标记为登录项启动的情况
+        let propData = event.paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue
+        return propData != keyAELaunchedAsLogInItem
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        setupStatusItem()
+        // 恢复菜单栏图标:
+        // - 未隐藏 → 正常显示
+        // - 已隐藏 + 登录项自动启动 → 保持隐藏(重启后不会自己出现)
+        // - 已隐藏 + 用户手动打开 → 重新显示
+        isIconHidden = UserDefaults.standard.bool(forKey: Self.iconHiddenKey)
+        if isIconHidden {
+            if launchWasUserInitiated {
+                restoreStatusItemByUser()
+            }
+        } else {
+            setupStatusItem()
+        }
 
         // 始终启用拦截;无辅助功能权限时通过轮询在授权后自动生效
         controller.setEnabled(true)
@@ -26,11 +74,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         pollTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
             self?.refreshState()
         }
+
+        // 兜底:App 被重新激活(如再次打开 MiniME)时,若图标处于隐藏状态则恢复显示
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(applicationDidActivate(_:)),
+            name: NSWorkspace.didActivateApplicationNotification,
+            object: nil
+        )
     }
 
     // MARK: - 状态栏
 
     private func setupStatusItem() {
+        guard statusItem == nil else { return }
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = item.button {
             // 自绘线条轮廓图标(template image,自动适配深浅色菜单栏)
@@ -42,6 +99,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         item.menu = buildMenu()
         statusItem = item
+        lastMenuSignature = menuSignature()
+    }
+
+    /// 隐藏菜单栏图标(进程继续运行,拦截功能不受影响;状态持久化,重启后仍保持隐藏)
+    @objc private func hideStatusItem() {
+        guard let item = statusItem else { return }
+        UserDefaults.standard.set(true, forKey: Self.iconHiddenKey)
+        isIconHidden = true
+        NSStatusBar.system.removeStatusItem(item)
+        statusItem = nil
+        lastMenuSignature = ""
+        // 一并收起本应用的窗口,保持界面干净
+        aboutWindow?.orderOut(nil)
+        aboutWindow = nil
+        changelogWindow?.orderOut(nil)
+        changelogWindow = nil
+    }
+
+    /// 由用户主动操作恢复菜单栏图标(并清除隐藏状态)
+    private func restoreStatusItemByUser() {
+        UserDefaults.standard.set(false, forKey: Self.iconHiddenKey)
+        isIconHidden = false
+        setupStatusItem()
+    }
+
+    /// App 被重新激活时:若菜单栏图标已隐藏,则视为用户主动打开并恢复显示
+    @objc private func applicationDidActivate(_ notification: Notification) {
+        guard isIconHidden else { return }
+        guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey]
+                as? NSRunningApplication,
+              app.bundleIdentifier == Bundle.main.bundleIdentifier else { return }
+        restoreStatusItemByUser()
     }
 
     private func refreshState() {
@@ -94,6 +183,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         about.target = self
         menu.addItem(about)
 
+        let hideIcon = NSMenuItem(title: L10n.t("menu.hideIcon", "Hide Menu Bar Icon"),
+                                  action: #selector(hideStatusItem),
+                                  keyEquivalent: "")
+        hideIcon.target = self
+        hideIcon.toolTip = L10n.t("menu.hideIcon.tooltip",
+                                  "The icon stays hidden until you open MiniME again")
+        menu.addItem(hideIcon)
+
         menu.addItem(.separator())
 
         menu.addItem(NSMenuItem(title: L10n.t("menu.quit", "Quit MiniME"),
@@ -120,7 +217,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     private func makeAboutWindow() -> NSWindow {
-        let contentSize = NSSize(width: 400, height: 366)
+        let contentSize = NSSize(width: 400, height: 392)
         let window = NSWindow(contentRect: NSRect(origin: .zero, size: contentSize),
                               styleMask: [.titled, .closable],
                               backing: .buffered, defer: false)
@@ -168,18 +265,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         buttonRow.alignment = .centerY
         buttonRow.spacing = 16
 
+        // 检查更新(单独一行,兼容较长的英文文案)
+        let updateButton = makeCheckUpdateButton()
+        checkUpdateButton = updateButton
+
         // 作者名不参与本地化,中英文版本保持一致
         let copyrightField = aboutLabel("铃一贰叁 制作",
                                         font: .systemFont(ofSize: 11),
                                         color: .tertiaryLabelColor)
 
         let stack = NSStackView(views: [iconView, nameField, versionField,
-                                        taglineField, buttonRow])
+                                        taglineField, buttonRow, updateButton])
         stack.orientation = .vertical
         stack.alignment = .centerX
         stack.spacing = 6
         stack.setCustomSpacing(18, after: iconView)
         stack.setCustomSpacing(12, after: taglineField)
+        stack.setCustomSpacing(6, after: buttonRow)
         stack.translatesAutoresizingMaskIntoConstraints = false
         visual.addSubview(stack)
 
@@ -222,6 +324,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                        symbolName: "doc.text",
                        action: #selector(showChangelog),
                        toolTip: L10n.t("changelog.windowTitle", "Changelog"))
+    }
+
+    /// 关于页面的「检查更新」按钮
+    private func makeCheckUpdateButton() -> NSButton {
+        makeLinkButton(title: L10n.t("about.checkUpdate", "Check for Updates"),
+                       symbolName: "arrow.triangle.2.circlepath",
+                       action: #selector(checkForUpdates),
+                       toolTip: L10n.t("about.checkUpdate", "Check for Updates"))
     }
 
     /// 通用链接样式按钮(无边框、链接色、悬停手型光标)
@@ -269,8 +379,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     private func versionString() -> String {
-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.2"
-        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "26w38a"
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.3"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "26w38b"
         return L10n.format("about.versionFormat", "Version %@ (build %@)", version, build)
     }
 
@@ -278,6 +388,128 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     @objc private func openProjectURL() {
         NSWorkspace.shared.open(Self.projectURL)
+    }
+
+    /// 检查更新:对比本地版本与仓库中 `scripts/build-app.sh` 的版本号
+    /// - 相同 → 提示已是最新版本
+    /// - 不同 → 跳转到项目主页
+    @objc private func checkForUpdates() {
+        guard !isCheckingUpdate else { return }
+        isCheckingUpdate = true
+        setLinkButton(checkUpdateButton,
+                      title: L10n.t("about.checkUpdate.checking", "Checking…"),
+                      enabled: false)
+
+        var request = URLRequest(url: Self.versionFeedURL)
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.timeoutInterval = 15
+
+        let currentVersion = Bundle.main
+            .object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.3"
+
+        URLSession.shared.dataTask(with: request) { [weak self] data, _, error in
+            var remoteVersion: String?
+            if let data, let text = String(data: data, encoding: .utf8) {
+                remoteVersion = Self.extractVersion(from: text)
+            }
+            DispatchQueue.main.async {
+                self?.finishUpdateCheck(currentVersion: currentVersion,
+                                        remoteVersion: remoteVersion,
+                                        error: error)
+            }
+        }.resume()
+    }
+
+    private func finishUpdateCheck(currentVersion: String,
+                                   remoteVersion: String?,
+                                   error: Error?) {
+        isCheckingUpdate = false
+        setLinkButton(checkUpdateButton,
+                      title: L10n.t("about.checkUpdate", "Check for Updates"),
+                      enabled: true)
+
+        guard let remoteVersion else {
+            let alert = NSAlert()
+            alert.messageText = L10n.t("update.failed.title", "Update Check Failed")
+            alert.informativeText = L10n.format(
+                "update.failed.message",
+                "Could not fetch the latest version information. Please check your network connection and try again.\n\n%@",
+                error?.localizedDescription ?? L10n.t("changelog.unavailable", "Changelog file not found.")
+            )
+            alert.runModal()
+            return
+        }
+
+        if remoteVersion == currentVersion || !Self.isVersion(remoteVersion, newerThan: currentVersion) {
+            // 版本相同,或本地版本更新(远端更旧)→ 无需跳转
+            let alert = NSAlert()
+            alert.messageText = L10n.t("update.upToDate.title", "You're Up to Date")
+            alert.informativeText = L10n.format("update.upToDate.message",
+                                                "MiniME %@ is the latest version.",
+                                                currentVersion)
+            alert.runModal()
+            return
+        }
+
+        // 远端存在更新版本 → 先弹窗告知,再由用户决定是否跳转
+        let alert = NSAlert()
+        alert.messageText = L10n.format("update.available.title",
+                                        "A New Version Is Available: %@",
+                                        remoteVersion)
+        alert.informativeText = L10n.format("update.available.message",
+                                            "The latest version is %@. You are currently running %@.",
+                                            remoteVersion, currentVersion)
+        alert.addButton(withTitle: L10n.t("update.available.jump", "Open Project Page"))
+        alert.addButton(withTitle: L10n.t("update.available.later", "Later"))
+        if alert.runModal() == .alertFirstButtonReturn {
+            NSWorkspace.shared.open(Self.projectURL)
+        }
+    }
+
+    /// 语义化版本比较:判断 lhs 是否比 rhs 更新(逐段比较数字,缺失段按 0 处理)
+    private static func isVersion(_ lhs: String, newerThan rhs: String) -> Bool {
+        func segments(_ version: String) -> [Int] {
+            version.split(separator: ".").map { part in
+                Int(part.prefix { $0.isNumber }) ?? 0
+            }
+        }
+        let left = segments(lhs)
+        let right = segments(rhs)
+        for index in 0..<max(left.count, right.count) {
+            let l = index < left.count ? left[index] : 0
+            let r = index < right.count ? right[index] : 0
+            if l != r { return l > r }
+        }
+        return false // 完全相等
+    }
+
+    /// 从 build-app.sh 文本中提取 `CFBundleShortVersionString` 对应的版本号
+    private static func extractVersion(from text: String) -> String? {
+        guard let keyRange = text.range(of: "<key>CFBundleShortVersionString</key>") else {
+            return nil
+        }
+        let rest = text[keyRange.upperBound...]
+        guard let openTag = rest.range(of: "<string>"),
+              let closeTag = rest.range(of: "</string>",
+                                        range: openTag.upperBound..<rest.endIndex) else {
+            return nil
+        }
+        let version = rest[openTag.upperBound..<closeTag.lowerBound]
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return version.isEmpty ? nil : version
+    }
+
+    /// 更新链接样式按钮的标题与可用状态(attributedTitle 优先,需同时设置)
+    private func setLinkButton(_ button: NSButton?, title: String, enabled: Bool) {
+        guard let button else { return }
+        button.attributedTitle = NSAttributedString(
+            string: title,
+            attributes: [
+                .font: NSFont.systemFont(ofSize: 12),
+                .foregroundColor: enabled ? NSColor.linkColor : NSColor.disabledControlTextColor,
+            ]
+        )
+        button.isEnabled = enabled
     }
 
     /// 弹出更新日志窗口(按当前界面语言加载对应语言的日志文件)
@@ -379,6 +611,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if (notification.object as? NSWindow) === changelogWindow {
             changelogWindow = nil
         }
+    }
+
+    // MARK: - 重新打开应用
+
+    /// 应用已在运行且被再次打开(如 Finder 双击 / `open MiniME.app`)时:
+    /// 视为用户主动操作 → 恢复被隐藏的菜单栏图标,并刷新菜单状态
+    func applicationShouldHandleReopen(_ sender: NSApplication,
+                                       hasVisibleWindows flag: Bool) -> Bool {
+        restoreStatusItemByUser()
+        updateMenuIfNeeded()
+        return false // 不执行系统默认行为(无需激活/显示窗口)
     }
 }
 

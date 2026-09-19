@@ -31,9 +31,9 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>0.2</string>
+    <string>0.3</string>
     <key>CFBundleVersion</key>
-    <string>26w38a</string>
+    <string>26w38b</string>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
     <key>NSHumanReadableCopyright</key>

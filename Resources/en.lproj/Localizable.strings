@@ -3,6 +3,8 @@
 /* Menu bar menu */
 "menu.launchAtLogin" = "Launch at Login";
 "menu.about" = "About MiniME";
+"menu.hideIcon" = "Hide Menu Bar Icon";
+"menu.hideIcon.tooltip" = "The icon stays hidden until you open MiniME again";
 "menu.quit" = "Quit MiniME";
 
 /* About window */
@@ -10,7 +12,19 @@
 "about.tagline" = "Click a Dock icon to minimize that app's windows";
 "about.projectLink" = "Project Page";
 "about.changelogButton" = "View Changelog";
+"about.checkUpdate" = "Check for Updates";
+"about.checkUpdate.checking" = "Checking…";
 "about.versionFormat" = "Version %@ (build %@)";
+
+/* Update check */
+"update.upToDate.title" = "You're Up to Date";
+"update.upToDate.message" = "MiniME %@ is the latest version.";
+"update.available.title" = "A New Version Is Available: %@";
+"update.available.message" = "The latest version is %@. You are currently running %@.";
+"update.available.jump" = "Open Project Page";
+"update.available.later" = "Later";
+"update.failed.title" = "Update Check Failed";
+"update.failed.message" = "Could not fetch the latest version information. Please check your network connection and try again.\n\n%@";
 
 /* Changelog window */
 "changelog.windowTitle" = "Changelog";
